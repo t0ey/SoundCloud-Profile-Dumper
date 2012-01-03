@@ -12,7 +12,7 @@
 use strict;
 use File::stat;
 # sound cloud profile name
-my $profile = 'mindtalk';
+my $profile = 'sizzlebird';
 # create main data structure with pointer
 my %hash;
 my $hash = \%hash;
@@ -37,10 +37,10 @@ downloadTrackData();
 sub downloadTrackData {
  delete $hash{csv};
  
+ csvHeadings();
  hashIDs();
- #print "$_ = $hash{ids}{$_}\n" foreach keys %{$hash{ids}};
  
- foreach my $key (returnPageKeys()) {
+ foreach my $key (grep { /page/ } returnPageKeys()) {
   hashLinks($key);
   initTrackHash();
   foreach my $line (`awk '/^\\[\/,\/\\.[0-9]+\$/' $hash{rawDataDir}/$key`) {
@@ -50,6 +50,7 @@ sub downloadTrackData {
     $hash{track}{'08link'} = $hash{links}{$i};
     $hash{track}{'01name'} = $2;
     $i--;
+    #print $hash{links}{$i}."\n";
     $hash{track}{'09artwork'} = $hash{links}{$i} if ($hash{links}{$i} =~ /artworks\-/);
     $hash{track}{'09artwork'} =~ s/(\?.*?)$//;
     $hash{track}{'02sname'} = $1 if ($hash{track}{'08link'} =~ /\/([^\/]+)$/);
@@ -98,15 +99,21 @@ sub downloadTrackData {
  return 0;
 }
 
-sub hashLinks {
- my $key = shift;
- delete $hash{links};
- foreach my $link (grep { /^\s+\d+\.\s[a-z]+\:\/\// } @{$hash{$key}} ) {
-  if ($link =~ /^\s+(\d+)\.\s([a-z]+\:\/\/[^\s]+)/) {
-   $hash{links}{$1} = $2;
-   $hash{links}{$1} =~ s/file\:\/\/localhost/http\:\/\/soundcloud.com/;
-  }
- }
+sub csvHeadings {
+ initTrackHash();
+ $hash{track}{'01name'}      = 'Name';
+ $hash{track}{'02sname'}     = 'Shortname';
+ $hash{track}{'03id'}        = 'SoundCloud ID';
+ $hash{track}{'04date'}      = 'Release Date';
+ $hash{track}{'05plays'}     = 'Plays';
+ $hash{track}{'06favorites'} = 'Favoritings';
+ $hash{track}{'07length'}    = 'Length';
+ $hash{track}{'08link'}      = 'SoundCloud URL';
+ $hash{track}{'09artwork'}   = 'Artwork Path';
+ $hash{track}{'10download'}  = 'Track Path';
+ $hash{track}{'11purchase'}  = 'Purchase URL';
+ csvTrackHash();
+ return 0;
 }
 
 sub initTrackHash {
@@ -124,6 +131,48 @@ sub initTrackHash {
  return 0;
 }
 
+sub hashIDs {
+ foreach (`cat $hash{rawDataDir}/source*`) {
+  next if (! /track=\"(\d+)\".*?\>([^\<\>]+)\<\/a\>(<\/h3\>)?$/ );
+  my $id = $1; my $name = $2;
+  $name =~ s/\s+Artwork$//;
+  $hash{ids}{$id} = $name;
+  $hash{names}{$name} = $id;
+ }
+ return 0;
+}
+
+sub hashLinks {
+ my $key = shift;
+ delete $hash{links};
+ foreach my $link (grep { /^\s+\d+\.\s[a-z]+\:\/\// } @{$hash{$key}} ) {
+  if ($link =~ /^\s+(\d+)\.\s([a-z]+\:\/\/[^\s]+)/) {
+   $hash{links}{$1} = $2;
+   $hash{links}{$1} =~ s/file\:\/\/localhost/http\:\/\/soundcloud.com/;
+  }
+ }
+}
+
+sub downloadArt {
+ # return if there is no file to download
+ return 0 if (!$hash{track}{'09artwork'});
+ # create target directory if it does not exist
+ mkdir "$hash{artDir}" if (!-d $hash{artDir});
+ # create temporary variables containing the download URL
+ my $url = $hash{track}{'09artwork'};
+ my $filename = $hash{track}{'09artwork'};
+ # extract filename from URL and convert
+ $filename =~ s/^.*?\/([^\/]+)$/$1/;
+ # point the csv value to its local location
+ $hash{track}{'09artwork'} = "$hash{artDir}/$filename";
+ # return if the file already exists
+ return 0 if (-e "$hash{artDir}/$filename");
+ # download the file
+ wgetFile($url, "\"$hash{artDir}/$filename\"");
+ # exit
+ return 0;
+}
+
 sub setID {
 
  my @array1 = split //, $hash{track}{'01name'};
@@ -135,19 +184,19 @@ sub setID {
   my @array2 = split //, $hash{ids}{$key};
   my @diff = returnDiff(@array1, @array2);
   if ($#diff < $last) {
-   $hash{track}{'03id'} = $hash{ids}{$key};
+   $hash{track}{'03id'} = $key;
    $last = $#diff;
    if ($hash{debug}) {
     print "\tThe Symmetric Difference\n";
     print "\tOf: '$hash{track}{'01name'}'\n";
     print "\tAnd: '$hash{ids}{$key}'\n\tEquals: $#diff\n";
-    print "================\n";
    }
    next;
   }
-  print "Diff of: '$hash{track}{'01name'}' & '$hash{ids}{$key}' = $#diff\n" if ($hash{debug} == 3);
+  print "Diff of: '$hash{track}{'01name'}' & '$hash{ids}{$key}' = $#diff\n" if ($hash{debug} >= 3);
  }
-
+ 
+ print "================\n";
 }
 
 sub returnDiff {
@@ -163,48 +212,34 @@ sub returnDiff {
  return @difference;
 }
 
-sub hashIDs {
- foreach (`cat $hash{rawDataDir}/source*`) {
-  next if (! /track=\"(\d+)\".*?\>([^\<\>]+)\<\/a\>(<\/h3\>)?$/ );
-  my $id = $1; my $name = $2;
-  $name =~ s/\s+Artwork$//;
-  $hash{ids}{$id} = $name;
-  $hash{names}{$name} = $id;
- }
- return 0;
-}
-
-sub downloadArt {
- return 0 if (!$hash{track}{'09artwork'});
- mkdir "$hash{artDir}" if (!-d $hash{artDir});
- my $url = $hash{track}{'09artwork'};
- my $filename = $hash{track}{'09artwork'};
- $filename =~ s/^.*?\/([^\/]+)$/$1/;
- $hash{track}{'09artwork'} = "$hash{artDir}/$filename";
- return 0 if (-e "$hash{artDir}/$filename");
- wgetFile($url, "\"$hash{artDir}/$filename\"");
- return 0;
-}
-
 sub downloadMusic {
+ # return if there is no file to download
  return 0 if (!$hash{track}{'10download'});
+ # create target directory if it does not exist
  mkdir "$hash{musicDir}" if (!-d $hash{musicDir});
+ # create temporary variables containing the download URL and filename
  my $url = $hash{track}{'10download'};
  my $filename = $hash{track}{'01name'};
+ # remove unessesary text from file name
  $filename =~ s/\s?\Wfree(\s?[^\s]+)?\W\s?//i;
+ # point the csv value to its local location
  $hash{track}{'10download'} = "$hash{musicDir}/$filename.mp3";
+ # return if the file already exists
  return 0 if (-e "$hash{musicDir}/$filename.mp3");
+ # download the file
  wgetFile($url, "\"$hash{musicDir}/$filename.mp3\"");
+ # exit
  return 0;
 }
 
 sub wgetFile {
  my ($url, $destination) = (shift, shift);
- if ($destination) {
-  `wget -T 10 -t 5 -w 3 -c -O $destination $url`;
+ print "wgetFile(INFO) downloading $url to $destination" if ($hash{debug} >= 2);
+ if ($destination =~ /rawData/) {
+  `wget -T 10 -t 5 -w 3 -O $destination $url`;
   return 0;
  }
- `wget $url`;
+ `wget -T 10 -t 5 -w 3 -c -O $destination $url`;
  return 0;
 }
 
@@ -219,23 +254,29 @@ sub csvTrackHash {
 }
 
 sub writeCSV {
- print "writeCSV(INFO) writing '$hash{csvFile}'\n" if ($hash{debug} == 2);
+ print "writeCSV(INFO) writing '$hash{csvFile}'\n" if ($hash{debug} >= 2);
  open FILE, ">$hash{csvFile}";
- print FILE "\"Name\",\"Shortname\",\"SoundCloud ID\",\"Release\",\"Plays\",\"Favoritings\",\"Length\",\"SoudCloud URL\",\"Artwork Path\",\"Download Path\",\"Purchase URL\"\n";
  print FILE $_."\n" foreach (@{$hash{csv}});
  close FILE;
 }
-
+################################################################################################################
 sub fetchRAWdata {
+ 
+ initRawDataDir();
+ 
  # confirm we haven't done this within the defined raw data cache maxium age
  # also creates directory structures
  return 0 if (!testRAWdataAge());
  
  # grab first page raw data
  wgetFile($hash{url}, "$hash{rawDataDir}/source0.html");
+ setTotalPages("$hash{rawDataDir}/source0.html");
  
  #formats the first pages index number correctly, and destorys page0
  rename "$hash{rawDataDir}/source0.html", "$hash{rawDataDir}/source".formatPageNum(1).".html";
+
+ #exit if there is no more pages
+ if (!$hash{totalPages}) { lynxDumpSource(); return 0; }
  
  #prints the number of pages to fetch if debuging is high
  print "fetchRAWdata(INFO) Found $hash{totalPages} pages to slurp...\n" if ($hash{debug} == 2);
@@ -244,6 +285,7 @@ sub fetchRAWdata {
  for (my $i = 2; $i <= $hash{totalPages}; $i++) {
   wgetFile($hash{url}."?page=$i", "$hash{rawDataDir}/source".formatPageNum($i).".html");
  }
+ 
  #dump data to files
  lynxDumpSource();
  #exit
@@ -261,24 +303,18 @@ sub lynxDumpSource {
 
 sub setTotalPages {
  my $file = shift;
+ $hash{totalPages} = '';
  foreach (reverse split '</a>', `grep "Prev.*Next" $file`) {
   if ( /(\d+)$/ ) {
    $hash{totalPages} = $1;
    last;
   }
  }
- return 1 if ($hash{totalPages});
- $hash{totalPages} = '';
  return 0;
 }
 
 sub testRAWdataAge {
-
- if (!-d "$hash{rawDataDir}") {
-  print "testRAWdataAge(INFO) '$hash{rawDataDir}' did not exist... slurping pages\n" if ($hash{debug} == 2);
-  mkRAWdataDir();
-  return 1;
- }
+ 
  my $file = extractRAWfn();
 
  if (!$file) {
@@ -324,21 +360,6 @@ sub formatPageNum {
  return sprintf ("$format", $i);
 }
 
-sub mkProfileDir {
- return 0 if (-d "$profile");
- print "mkProfileDir(INFO) making \'$profile\' Directory\n" if ($hash{debug} == 2); 
- mkdir "$profile";
- return 0;
-}
-
-sub mkRAWdataDir {
- mkProfileDir();
- return 0 if (-d "$hash{rawDataDir}");
- print "mkRAWdataDir(INFO) making \'$hash{rawDataDir}\' Directory\n" if ($hash{debug} == 2);
- mkdir "$hash{rawDataDir}";
- return 0;
-}
-
 sub extractRAWfn {
  my @files = grep { !/^\./ } listDir($hash{rawDataDir});
  return pop @files;
@@ -368,20 +389,20 @@ sub listDir {
  return @files;
 }
 
-sub deleteRAWdata {
- rmdir $hash{rawDataDir};
- mkRAWdataDir();
- return 0;
-}
-
 sub returnPageKeys {
  return grep { /^page|source/ } sort keys %hash;
 }
 
+sub initRawDataDir {
+ mkdir "$profile" if (!-d "$profile");
+ mkdir "$hash{rawDataDir}" if (!-d "$hash{rawDataDir}");
+}
+
 sub saveRAWdata {
  print "saveRAWdata(INFO) clearing raw directory data before saving\n" if ($hash{debug} == 2);
- deleteRAWdata();
- 
+ rmdir $hash{rawDataDir};
+ initRawDataDir();
+  
  foreach my $key (returnPageKeys()) {
   print "saveRAWdata(INFO) writing cache '$hash{rawDataDir}/$key'\n" if ($hash{debug} == 2);
   open FILE, ">$hash{rawDataDir}/$key";
