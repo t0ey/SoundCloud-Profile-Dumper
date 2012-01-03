@@ -1,0 +1,48 @@
+#--------------------------------------------------------------------------#
+
+  Component:  $Id: SoundCloud-Profile-Dumper.pl,v 1.0 2011/12/29 00:00:00 t0ey Exp $
+     Author:  Toey Jammer
+    Contact:  toey@toey.org
+
+#--------------------------------------------------------------------------#
+
+Description:
+
+Script used to extract SoundCloud profile data into local file structure as follows:
+
+$baseDIR = current directory
+$profile = SoundCloud profile
+
+$baseDIR/$profile/tracklist.csv = Comma Seperated Values that contain relevant track info...
+				  Current column headings are:
+
+Name	Shortname	SoundCloud ID	Release Date	Plays	Favoritings	Length	SoudCloud URL	Artwork Path	Download Path	Purchase URL																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																			 
+
+$baseDIR/$profile/art		= folder containing relevant artwork for each track
+$baseDIR/$profile/music		= folder containing downloadable songs
+
+Script variable $hash{rawDataAge} defines the maxium age (in seconds) that the data can be before
+checking for updates. The default is 42000 (~1/2 a day)
+
+Script will check and ensure it doesnt already have artwork and music files before proceeding to download
+
+#--------------------------------------------------------------------------#
+
+Script Dependancies:
+	
+	User Variables:
+	- $profile = the soundcloud profile you want to download
+
+	Perl Modules
+	- perl module File::stat -- included as of Perl 5.004;
+
+	GNU Tools
+	- wget  (GNU Wget 1.13)
+	- lynx (Lynx version 2.8.8dev.9)
+	- awk (GNU Awk 3.1.8)
+	- egrep (egrep (GNU grep) 2.9)
+	
+(GNU Tools should be availible to the scripts environment on execution)
+Older versions than the GNU Tools used to build this script Should work...
+
+#--------------------------------------------------------------------------#
