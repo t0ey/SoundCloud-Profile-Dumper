@@ -4,29 +4,15 @@
 #  Component:  $Id: SoundCloud-Profile-Dumper.pl,v 1.0 2011/12/29 00:00:00 t0ey Exp $
 #     Author:  Toey Jammer
 #    Contact:  toey@toey.org
-#
+# 
+# !!!PLEASE READ README file!!!
 #--------------------------------------------------------------------------#
-#
-#  Description:
-#    Script used to extract SoundCloud profile data into local file
-#    structure
-#
-#--------------------------------------------------------------------------#
-#
-#  Dependancies:
-#   - $profile = the soundcloud profile you want to download
-my $profile = 'tomekn';
-#   - perl module File::stat included as of Perl 5.004;
-#   - lynx (Lynx version 2.8.8dev.9)
-#   - awk (GNU Awk 3.1.8)
-#   - egrep (egrep (GNU grep) 2.9)
-#   - wget  (GNU Wget 1.13)
-# (GNU Tools should be availible to this scripts environment on execution)
-# Older versions than the GNU Tools used to build this script Should work...
-#
-#--------------------------------------------------------------------------#
+
+
 use strict;
 use File::stat;
+# sound cloud profile
+my $profile = 'blumarten';
 # create main data structure with pointer
 my %hash;
 my $hash = \%hash;
