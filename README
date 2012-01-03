@@ -18,6 +18,7 @@ $baseDIR/$profile/tracklist.csv = Comma Seperated Values that contain relevant t
 
 Name	Shortname	SoundCloud ID	Release Date	Plays	Favoritings	Length	SoudCloud URL	Artwork Path	Download Path	Purchase URL																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																			 
 
+$baseDIR/$profile/rawData	= folder containing the raw data used to extract the info
 $baseDIR/$profile/art		= folder containing relevant artwork for each track
 $baseDIR/$profile/music		= folder containing downloadable songs
 
