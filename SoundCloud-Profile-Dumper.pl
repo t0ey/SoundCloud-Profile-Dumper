@@ -15,14 +15,14 @@
 #
 #  Dependancies:
 #   - $profile = the soundcloud profile you want to download
-my $profile = 'sizzlebird';
+my $profile = 'tomekn';
 #   - perl module File::stat included as of Perl 5.004;
 #   - lynx (Lynx version 2.8.8dev.9)
 #   - awk (GNU Awk 3.1.8)
 #   - egrep (egrep (GNU grep) 2.9)
 #   - wget  (GNU Wget 1.13)
 # (GNU Tools should be availible to this scripts environment on execution)
-# Older versions may work...
+# Older versions than the GNU Tools used to build this script Should work...
 #
 #--------------------------------------------------------------------------#
 use strict;
@@ -40,42 +40,15 @@ $hash{rawDataDir} = "$profile/rawData";
 $hash{csvFile} = "$profile/tracklist.csv";
 # set art directory
 $hash{artDir} = "$profile/art";
-# set art directory
-$hash{tracksDir} = "$profile/tracks";
+# set music directory
+$hash{musicDir} = "$profile/music";
 # set raw data cache maxium age
 $hash{rawDataAge} = 42000;
 
 fetchRAWdata();
-csvTrackData();
-downloadArt();
+downloadTrackData();
 
-sub downloadArt {
- mkdir "$hash{artDir}" if (!-d $hash{artDir});
- my %temp;
- $temp{$_}++ foreach `egrep -o "\[^\\"\]+artwork\[^\\"\]+" $hash{csvFile}`; 
- foreach my $url (keys %temp) {
-  chomp $url;
-  my $fileName = $1 if ($url =~ /\/([^\/]+)$/);
-  if (-e "$hash{artDir}/$fileName") {
-   print "downloadArt(INFO) $fileName already exists... skipping\n" if ($hash{debug} == 3);
-   next;
-  }
-  print "downloadArt(INFO) need to download $url...\n" if ($hash{debug} == 2);
-  wgetFile($url, "$hash{artDir}/$fileName");
- }
-}
-
-sub wgetFile {
- my ($url, $destination) = (shift, shift);
- if ($destination) {
-  `wget -T 10 -t 5 -w 3 -c -O $destination $url`;
-  return 0;
- }
- `wget $url`;
- return 0;
-}
-
-sub csvTrackData {
+sub downloadTrackData {
  delete $hash{csv};
  foreach my $key (returnPageKeys()) {
   hashLinks($key);
@@ -91,6 +64,7 @@ sub csvTrackData {
     $hash{track}{'09artwork'} =~ s/(\?.*?)$//;
     $hash{track}{'02sname'} = $1 if ($hash{track}{'08link'} =~ /\/([^\/]+)$/);
     setID();
+    downloadArt();
     next;
    }
    # add any additional strings to the track name
@@ -112,6 +86,7 @@ sub csvTrackData {
    # match download link
    if ($line =~ /Favorites \[(\d+)\]Download/) {
     $hash{track}{'10download'} = $hash{links}{$1};
+    downloadMusic();
     next;
    }
    # match purchase link
@@ -131,37 +106,15 @@ sub csvTrackData {
  return 0;
 }
 
-sub setID {
- 
- print "$hash{track}{'01name'}\n";
- print "$hash{track}{'02sname'}\n";
- print "$hash{track}{'08link'}\n";
- print "$hash{track}{'09artwork'}\n";
- 
- my $temp = $hash{track}{'01name'};
- $temp =~ s/(\W)/\\$1/g;
- $temp =~ s/\\\&/\\\&amp\\\;/g;
- 
- print $temp."\n";
- 
- foreach my $line (`cat $hash{rawDataDir}/source*`) {
-  next if ($line !~ /track=\"(\d+)\".*?$temp.*?\s+Art/i);
-  $hash{track}{'03id'} = $1;
+sub hashLinks {
+ my $key = shift;
+ delete $hash{links};
+ foreach my $link (grep { /^\s+\d+\.\s[a-z]+\:\/\// } @{$hash{$key}} ) {
+  if ($link =~ /^\s+(\d+)\.\s([a-z]+\:\/\/[^\s]+)/) {
+   $hash{links}{$1} = $2;
+   $hash{links}{$1} =~ s/file\:\/\/localhost/http\:\/\/soundcloud.com/;
+  }
  }
- 
- print "$hash{track}{'03id'}\n";
- print "=========================================================\n";
- return 0;
-}
-
-sub csvTrackHash {
- my $csv = '';
- foreach my $key (sort keys %{$hash{track}}) {
-  $csv .= "\"$hash{track}{$key}\",";
- }
- push @{$hash{csv}}, $csv;
- initTrackHash();
- return 0;
 }
 
 sub initTrackHash {
@@ -179,20 +132,74 @@ sub initTrackHash {
  return 0;
 }
 
-sub hashLinks {
- my $key = shift;
- delete $hash{links};
- foreach my $link (grep { /^\s+\d+\.\s[a-z]+\:\/\// } @{$hash{$key}} ) {
-  if ($link =~ /^\s+(\d+)\.\s([a-z]+\:\/\/[^\s]+)/) {
-   $hash{links}{$1} = $2;
-   $hash{links}{$1} =~ s/file\:\/\/localhost/http\:\/\/soundcloud.com/;
-  }
+sub setID {
+ 
+ print "'$hash{track}{'01name'}'\n";
+ 
+ my $temp = $hash{track}{'01name'};
+ $temp =~ s/(\W)/\\$1/g;
+ $temp =~ s/\\\&/\\\&amp\\\;/g;
+ 
+ print "'$temp'\n";
+ 
+ foreach my $line (`cat $hash{rawDataDir}/source*`) {
+  next if ($line !~ /track=\"(\d+)\".*?$temp.*?(\s+Art)?/i);
+  $hash{track}{'03id'} = $1;
  }
+ 
+ print "$hash{track}{'03id'}\n";
+ print "=========================================================\n";
+ return 0;
+}
+
+sub downloadArt {
+ return 0 if (!$hash{track}{'09artwork'});
+ mkdir "$hash{artDir}" if (!-d $hash{artDir});
+ my $url = $hash{track}{'09artwork'};
+ my $filename = $hash{track}{'09artwork'};
+ $filename =~ s/^.*?\/([^\/]+)$/$1/;
+ $hash{track}{'09artwork'} = "$hash{artDir}/$filename";
+ return 0 if (-e "$hash{artDir}/$filename");
+ wgetFile($url, "\"$hash{artDir}/$filename\"");
+ return 0;
+}
+
+sub downloadMusic {
+ return 0 if (!$hash{track}{'10download'});
+ mkdir "$hash{musicDir}" if (!-d $hash{musicDir});
+ my $url = $hash{track}{'10download'};
+ my $filename = $hash{track}{'01name'};
+ $filename =~ s/\s?\Wfree(\s?[^\s]+)?\W\s?//i;
+ $hash{track}{'10download'} = "$hash{musicDir}/$filename.mp3";
+ return 0 if (-e "$hash{musicDir}/$filename.mp3");
+ wgetFile($url, "\"$hash{musicDir}/$filename.mp3\"");
+ return 0;
+}
+
+sub wgetFile {
+ my ($url, $destination) = (shift, shift);
+ if ($destination) {
+  `wget -T 10 -t 5 -w 3 -c -O $destination $url`;
+  return 0;
+ }
+ `wget $url`;
+ return 0;
+}
+
+sub csvTrackHash {
+ my $csv = '';
+ foreach my $key (sort keys %{$hash{track}}) {
+  $csv .= "\"$hash{track}{$key}\",";
+ }
+ push @{$hash{csv}}, $csv;
+ initTrackHash();
+ return 0;
 }
 
 sub writeCSV {
  print "writeCSV(INFO) writing '$hash{csvFile}'\n" if ($hash{debug} == 2);
  open FILE, ">$hash{csvFile}";
+ print FILE "\"Name\",\"Shortname\",\"SoundCloud ID\",\"Release\",\"Plays\",\"Favoritings\",\"Length\",\"SoudCloud URL\",\"Artwork Path\",\"Download Path\",\"Purchase URL\"\n";
  print FILE $_."\n" foreach (@{$hash{csv}});
  close FILE;
 }
@@ -260,7 +267,7 @@ sub testRAWdataAge {
  }
 
  if (checkFileMtime("$hash{rawDataDir}/$file")) {
-  print "testRAWdataAge(INFO) '$hash{rawDataDir}/$file is older than $hash{rawDataAge}... slurping pages\n" if ($hash{debug} == 2);
+  print "testRAWdataAge(INFO) '$hash{rawDataDir}/$file is older than $hash{rawDataAge} seconds... slurping pages\n" if ($hash{debug} == 2);
   return 1;
  }
 
@@ -286,7 +293,7 @@ sub executeCmd {
   print "executeCmd(ERROR) Not passed an Array Reference\n" if ($hash{debug});
   return 0;
  }
- print "executeCmd(INFO) Executing: \'$command\'\n" if ($hash{debug} == 2);
+ print "executeCmd(INFO) Executing: \'$command\'\n" if ($hash{debug} == 3);
  @$arrayRef = `$command`;
  return 0;
 }
