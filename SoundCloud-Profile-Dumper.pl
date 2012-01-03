@@ -5,14 +5,14 @@
 #     Author:  Toey Jammer
 #    Contact:  toey@toey.org
 # 
-# !!!PLEASE READ README file!!!
+# !!!PLEASE READ README FILE!!!
 #--------------------------------------------------------------------------#
 
 
 use strict;
 use File::stat;
-# sound cloud profile
-my $profile = 'blumarten';
+# sound cloud profile name
+my $profile = 'mindtalk';
 # create main data structure with pointer
 my %hash;
 my $hash = \%hash;
@@ -36,6 +36,10 @@ downloadTrackData();
 
 sub downloadTrackData {
  delete $hash{csv};
+ 
+ hashIDs();
+ #print "$_ = $hash{ids}{$_}\n" foreach keys %{$hash{ids}};
+ 
  foreach my $key (returnPageKeys()) {
   hashLinks($key);
   initTrackHash();
@@ -49,7 +53,6 @@ sub downloadTrackData {
     $hash{track}{'09artwork'} = $hash{links}{$i} if ($hash{links}{$i} =~ /artworks\-/);
     $hash{track}{'09artwork'} =~ s/(\?.*?)$//;
     $hash{track}{'02sname'} = $1 if ($hash{track}{'08link'} =~ /\/([^\/]+)$/);
-    setID();
     downloadArt();
     next;
    }
@@ -61,12 +64,15 @@ sub downloadTrackData {
    # match track date
    if ($line =~ / on (.*?\:\d+)$/) {
     $hash{track}{'04date'} = $1;
+    #if we're upto here the full track name has been caputured and we can set the ID
+    $hash{track}{'03id'} = $hash{names}{$hash{track}{'01name'}} if ($hash{names}{$hash{track}{'01name'}});
+    setID() if (!$hash{track}{'03id'});
     next;
    }
    # match amount of plays and favoritings
-   if ($line =~ /(\d+) Plays?(.*?)?(\d+) Favoritings?/) {
+   if ($line =~ /(\d+) Plays?/) {
     $hash{track}{'05plays'} = $1;
-    $hash{track}{'06favorites'} = $3;
+    $hash{track}{'06favorites'} = $1 if ($line =~ /(\d+) Favoritings?/);
     next;
    }
    # match download link
@@ -119,22 +125,52 @@ sub initTrackHash {
 }
 
 sub setID {
+
+ my @array1 = split //, $hash{track}{'01name'};
+ my $last = 100000;
  
- print "'$hash{track}{'01name'}'\n";
+ print "setID(WARNING) using heuristics to find track ID:\n" if ($hash{debug});
  
- my $temp = $hash{track}{'01name'};
- $temp =~ s/(\W)/\\$1/g;
- $temp =~ s/\\\&/\\\&amp\\\;/g;
+ foreach my $key (sort keys %{$hash{ids}}) {
+  my @array2 = split //, $hash{ids}{$key};
+  my @diff = returnDiff(@array1, @array2);
+  if ($#diff < $last) {
+   $hash{track}{'03id'} = $hash{ids}{$key};
+   $last = $#diff;
+   if ($hash{debug}) {
+    print "\tThe Symmetric Difference\n";
+    print "\tOf: '$hash{track}{'01name'}'\n";
+    print "\tAnd: '$hash{ids}{$key}'\n\tEquals: $#diff\n";
+    print "================\n";
+   }
+   next;
+  }
+  print "Diff of: '$hash{track}{'01name'}' & '$hash{ids}{$key}' = $#diff\n" if ($hash{debug} == 3);
+ }
+
+}
+
+sub returnDiff {
+ my @union = (); my @intersection = (); my @difference = (); my %count = ();
  
- print "'$temp'\n";
+ foreach my $element (@_) { $count{$element}++ }
  
- foreach my $line (`cat $hash{rawDataDir}/source*`) {
-  next if ($line !~ /track=\"(\d+)\".*?$temp.*?(\s+Art)?/i);
-  $hash{track}{'03id'} = $1;
+ foreach my $element (keys %count) {
+  push @union, $element;
+  push @{ $count{$element} > 1 ? \@intersection : \@difference }, $element;
  }
  
- print "$hash{track}{'03id'}\n";
- print "=========================================================\n";
+ return @difference;
+}
+
+sub hashIDs {
+ foreach (`cat $hash{rawDataDir}/source*`) {
+  next if (! /track=\"(\d+)\".*?\>([^\<\>]+)\<\/a\>(<\/h3\>)?$/ );
+  my $id = $1; my $name = $2;
+  $name =~ s/\s+Artwork$//;
+  $hash{ids}{$id} = $name;
+  $hash{names}{$name} = $id;
+ }
  return 0;
 }
 
@@ -198,9 +234,6 @@ sub fetchRAWdata {
  # grab first page raw data
  wgetFile($hash{url}, "$hash{rawDataDir}/source0.html");
  
- #extracts the total number of pages, exits if no more are required
- return 0 if (!setTotalPages("$hash{rawDataDir}/source0.html"));
- 
  #formats the first pages index number correctly, and destorys page0
  rename "$hash{rawDataDir}/source0.html", "$hash{rawDataDir}/source".formatPageNum(1).".html";
  
@@ -235,6 +268,7 @@ sub setTotalPages {
   }
  }
  return 1 if ($hash{totalPages});
+ $hash{totalPages} = '';
  return 0;
 }
 
