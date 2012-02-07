@@ -29,7 +29,7 @@ $hash{artDir} = "$profile/art";
 # set music directory
 $hash{musicDir} = "$profile/music";
 # set raw data cache maxium age
-$hash{rawDataAge} = 42000;
+$hash{rawDataAge} = 42;
 
 fetchRAWdata();
 downloadTrackData();
@@ -109,8 +109,8 @@ sub csvHeadings {
  $hash{track}{'06favorites'} = 'Favoritings';
  $hash{track}{'07length'}    = 'Length';
  $hash{track}{'08link'}      = 'SoundCloud URL';
- $hash{track}{'09artwork'}   = 'Artwork Path';
- $hash{track}{'10download'}  = 'Track Path';
+ $hash{track}{'09artwork'}   = 'Artwork';
+ $hash{track}{'10download'}  = 'Track';
  $hash{track}{'11purchase'}  = 'Purchase URL';
  csvTrackHash();
  return 0;
@@ -164,7 +164,7 @@ sub downloadArt {
  # extract filename from URL and convert
  $filename =~ s/^.*?\/([^\/]+)$/$1/;
  # point the csv value to its local location
- $hash{track}{'09artwork'} = "$hash{artDir}/$filename";
+ $hash{track}{'09artwork'} = $filename;
  # return if the file already exists
  return 0 if (-e "$hash{artDir}/$filename");
  # download the file
@@ -221,9 +221,10 @@ sub downloadMusic {
  my $url = $hash{track}{'10download'};
  my $filename = $hash{track}{'01name'};
  # remove unessesary text from file name
- $filename =~ s/\s?\Wfree(\s?[^\s]+)?\W\s?//i;
+ # this removes reference to free tracks i.e. [Free Download], (Free) ( Now Free!), etc...
+ $filename =~ s/\s?\W\s?([^\W\s]+)?\s?free(\s?[^\s]+)?\W\s?//i;
  # point the csv value to its local location
- $hash{track}{'10download'} = "$hash{musicDir}/$filename.mp3";
+ $hash{track}{'10download'} = "$filename.mp3";
  # return if the file already exists
  return 0 if (-e "$hash{musicDir}/$filename.mp3");
  # download the file
