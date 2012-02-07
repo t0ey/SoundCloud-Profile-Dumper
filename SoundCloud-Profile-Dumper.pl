@@ -1,7 +1,6 @@
 #!/usr/bin/perl -w
 #--------------------------------------------------------------------------#
 #
-#  Component:  $Id: SoundCloud-Profile-Dumper.pl,v 1.0 2011/12/29 00:00:00 t0ey Exp $
 #     Author:  Toey Jammer
 #    Contact:  toey@toey.org
 # 
