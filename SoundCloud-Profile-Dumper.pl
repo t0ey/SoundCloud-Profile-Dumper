@@ -279,7 +279,7 @@ sub fetchRAWdata {
  if (!$hash{totalPages}) { lynxDumpSource(); return 0; }
  
  #prints the number of pages to fetch if debuging is high
- print "fetchRAWdata(INFO) Found $hash{totalPages} pages to slurp...\n" if ($hash{debug} == 2);
+ print "fetchRAWdata(INFO) Found $hash{totalPages} pages to slurp...\n" if ($hash{debug} >= 2);
  
  #loop through the total number of pages and slurp them into the HoA's
  for (my $i = 2; $i <= $hash{totalPages}; $i++) {
@@ -318,27 +318,27 @@ sub testRAWdataAge {
  my $file = extractRAWfn();
 
  if (!$file) {
-  print "testRAWdataAge(INFO) no raw data found in '$hash{rawDataDir}... slurping pages\n" if ($hash{debug} == 2);
+  print "testRAWdataAge(INFO) no raw data found in '$hash{rawDataDir}... slurping pages\n" if ($hash{debug} >= 2);
   return 1;
  }
 
  if (checkFileMtime("$hash{rawDataDir}/$file")) {
-  print "testRAWdataAge(INFO) '$hash{rawDataDir}/$file is older than $hash{rawDataAge} seconds... slurping pages\n" if ($hash{debug} == 2);
+  print "testRAWdataAge(INFO) '$hash{rawDataDir}/$file is older than $hash{rawDataAge} seconds... slurping pages\n" if ($hash{debug} >= 2);
   return 1;
  }
 
  if (!setTotalPages("$hash{rawDataDir}/$file")) {
-  print "testRAWdataAge(INFO) found $hash{rawDataDir}/$file... raw data cache is valid, no need to download source :)\n" if ($hash{debug} == 2);
+  print "testRAWdataAge(INFO) found $hash{rawDataDir}/$file... raw data cache is valid, no need to download source :)\n" if ($hash{debug} >= 2);
   slurpRAWdata();
   return 0;
  }
 
  if ($file =~ /$hash{totalPages}$/) {
-  print "testRAWdataAge(INFO) '$hash{rawDataDir}/$file' is not the last file of $hash{totalPages}... slurping pages\n" if ($hash{debug} == 2);
+  print "testRAWdataAge(INFO) '$hash{rawDataDir}/$file' is not the last file of $hash{totalPages}... slurping pages\n" if ($hash{debug} >= 2);
   return 1;
  }
 
- print "testRAWdataAge(INFO) found $hash{rawDataDir}/$file... raw data cache is valid, no need to download source :)\n" if ($hash{debug} == 2);
+ print "testRAWdataAge(INFO) found $hash{rawDataDir}/$file... raw data cache is valid, no need to download source :)\n" if ($hash{debug} >= 2);
  slurpRAWdata();
  return 0;
 }
@@ -349,7 +349,7 @@ sub executeCmd {
   print "executeCmd(ERROR) Not passed an Array Reference\n" if ($hash{debug});
   return 0;
  }
- print "executeCmd(INFO) Executing: \'$command\'\n" if ($hash{debug} == 3);
+ print "executeCmd(INFO) Executing: \'$command\'\n" if ($hash{debug} >= 3);
  @$arrayRef = `$command`;
  return 0;
 }
@@ -399,12 +399,12 @@ sub initRawDataDir {
 }
 
 sub saveRAWdata {
- print "saveRAWdata(INFO) clearing raw directory data before saving\n" if ($hash{debug} == 2);
+ print "saveRAWdata(INFO) clearing raw directory data before saving\n" if ($hash{debug} >= 2);
  rmdir $hash{rawDataDir};
  initRawDataDir();
   
  foreach my $key (returnPageKeys()) {
-  print "saveRAWdata(INFO) writing cache '$hash{rawDataDir}/$key'\n" if ($hash{debug} == 2);
+  print "saveRAWdata(INFO) writing cache '$hash{rawDataDir}/$key'\n" if ($hash{debug} >= 2);
   open FILE, ">$hash{rawDataDir}/$key";
   if ($key =~ /^source/ ) {
    print FILE $_ foreach (grep { /player\" data-sc-track=/ } @{$hash{$key}});
